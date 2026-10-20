@@ -89,10 +89,12 @@ std::vector<RecordedMatch> parsePointsCsv(std::istream& in) {
     return out;
 }
 
-ReplayResult replayMatch(const RecordedMatch& match, MatchFormat format) {
+ReplayResult replayMatch(const RecordedMatch& match, MatchFormat format,
+                         FinalSetRule final_set_rule) {
     ReplayResult res;
     res.format = format;
-    MatchStateMachine m(format);
+    res.final_set_rule = final_set_rule;
+    MatchStateMachine m(format, final_set_rule);
     const std::size_t total = match.points.size();
     for (std::size_t i = 0; i < total; i++) {
         if (m.isMatchOver()) break;
@@ -106,15 +108,31 @@ ReplayResult replayMatch(const RecordedMatch& match, MatchFormat format) {
     }
     res.sets_a = m.setsWonBy(Player::A);
     res.sets_b = m.setsWonBy(Player::B);
+    res.sets = m.completedSets();
     return res;
 }
 
 ReplayResult replayMatchInferFormat(const RecordedMatch& match) {
-    ReplayResult best3 = replayMatch(match, MatchFormat::BestOf3);
-    if (best3.finished_on_last_point) return best3;
-    ReplayResult best5 = replayMatch(match, MatchFormat::BestOf5);
-    if (best5.finished_on_last_point) return best5;
-    return best3;
+    const FinalSetRule rules[] = {FinalSetRule::Tiebreak7At6, FinalSetRule::Advantage,
+                                  FinalSetRule::Tiebreak7At12, FinalSetRule::Tiebreak10At6};
+    ReplayResult fallback = replayMatch(match, MatchFormat::BestOf3);
+    for (FinalSetRule rule : rules) {
+        for (MatchFormat format : {MatchFormat::BestOf3, MatchFormat::BestOf5}) {
+            ReplayResult r = replayMatch(match, format, rule);
+            if (r.finished_on_last_point) return r;
+        }
+    }
+    return fallback;
+}
+
+const char* finalSetRuleName(FinalSetRule rule) {
+    switch (rule) {
+        case FinalSetRule::Tiebreak7At6: return "tiebreak at 6-6";
+        case FinalSetRule::Advantage: return "advantage final set";
+        case FinalSetRule::Tiebreak7At12: return "tiebreak at 12-12";
+        case FinalSetRule::Tiebreak10At6: return "10-point tiebreak at 6-6";
+    }
+    return "unknown";
 }
 
 } // namespace rallystate

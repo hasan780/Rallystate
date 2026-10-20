@@ -27,6 +27,16 @@ struct PointEvent {
 
 enum class MatchFormat { BestOf3, BestOf5 };
 
+// How the deciding set (set 3 of best-of-3, set 5 of best-of-5) ends when
+// the players are level late in the set. All other sets always use a
+// 7-point tiebreak at 6-6.
+enum class FinalSetRule {
+    Tiebreak7At6,   // 7-point tiebreak at 6-6 (the default)
+    Advantage,      // no tiebreak; play on until one player leads by 2 games
+    Tiebreak7At12,  // 7-point tiebreak at 12-12
+    Tiebreak10At6,  // 10-point tiebreak at 6-6
+};
+
 // The "0/15/30/40" style score a player would see on a scoreboard.
 // Deuce and Advantage only apply once both players have reached 40 (3
 // points) -- see GameTracker::scoreFor for where you'll implement this.

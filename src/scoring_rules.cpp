@@ -62,7 +62,7 @@ std::optional<Player> TiebreakTracker::awardPoint(Player winner) {
     int winner_pts = (winner == Player::A) ? points_a_ : points_b_;
     int opponent_pts = (winner == Player::A) ? points_b_ : points_a_;
 
-    if (winner_pts >= 7 and winner_pts >= (opponent_pts + 2)) {
+    if (winner_pts >= points_to_win_ and winner_pts >= (opponent_pts + 2)) {
         over_ = true;
         winner_ = winner;
         return winner_;

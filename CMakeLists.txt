@@ -38,6 +38,7 @@ add_executable(rallystate_tests
     tests/test_match_state_machine.cpp
     tests/test_glicko2.cpp
     tests/test_replay.cpp
+    tests/test_final_set_rules.cpp
 )
 target_link_libraries(rallystate_tests PRIVATE rallystate_lib Catch2::Catch2WithMain)
 

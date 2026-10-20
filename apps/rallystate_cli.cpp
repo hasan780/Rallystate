@@ -11,9 +11,13 @@ using namespace rallystate;
 static void usage() {
     std::cout <<
         "RallyState CLI\n"
-        "  rallystate_cli replay <points.csv>\n"
+        "  rallystate_cli replay <points.csv> [--sets]\n"
         "      Replay every match in a point-by-point CSV through the engine\n"
         "      and report how many end exactly on their last recorded point.\n"
+        "      Each final-set rule is tried (tiebreak at 6-6, advantage set,\n"
+        "      tiebreak at 12-12, 10-point tiebreak at 6-6).\n"
+        "      --sets also prints one tab-separated SETS line per match with\n"
+        "      the set scores the engine produced (player 1 first).\n"
         "  rallystate_cli rate <results.csv> [player]\n"
         "      results.csv has one 'winner,loser' row per match, oldest first.\n"
         "      Prints the top 10 ratings, or one player's rating history.\n"
@@ -38,7 +42,20 @@ static bool loadResults(const std::string& path, RatingBook& book) {
     return true;
 }
 
-static int cmdReplay(const std::string& path) {
+static std::string setsText(const ReplayResult& r) {
+    std::string out;
+    for (const auto& s : r.sets) {
+        if (!out.empty()) out += ' ';
+        out += std::to_string(s.games_a) + "-" + std::to_string(s.games_b);
+        if (s.in_tiebreak) {
+            out += "(" + std::to_string(s.tiebreak_points_a) + "-" +
+                   std::to_string(s.tiebreak_points_b) + ")";
+        }
+    }
+    return out;
+}
+
+static int cmdReplay(const std::string& path, bool print_sets) {
     std::ifstream in(path);
     if (!in) {
         std::cerr << "cannot open " << path << "\n";
@@ -53,17 +70,31 @@ static int cmdReplay(const std::string& path) {
     }
 
     int valid = 0;
+    int by_rule[4] = {0, 0, 0, 0};
     for (const auto& m : matches) {
         ReplayResult r = replayMatchInferFormat(m);
         if (r.finished_on_last_point) {
             valid++;
+            by_rule[static_cast<int>(r.final_set_rule)]++;
         } else {
             std::printf("MISMATCH %s: %d of %zu points, finished=%d\n", m.match_id.c_str(),
                         r.points_played, m.points.size(), r.match_finished ? 1 : 0);
         }
+        if (print_sets) {
+            std::printf("SETS\t%s\t%s\t%s\t%s\t%s\n", m.match_id.c_str(),
+                        r.finished_on_last_point ? "valid" : "mismatch",
+                        r.format == MatchFormat::BestOf3 ? "bo3" : "bo5",
+                        finalSetRuleName(r.final_set_rule), setsText(r).c_str());
+        }
     }
     std::printf("%d of %zu matches replayed to a winner on the final point\n", valid,
                 matches.size());
+    std::printf("final-set rule that fitted:");
+    for (int i = 0; i < 4; i++) {
+        std::printf("%s %s %d", i == 0 ? "" : ",", finalSetRuleName(static_cast<FinalSetRule>(i)),
+                    by_rule[i]);
+    }
+    std::printf("\n");
     return 0;
 }
 
@@ -103,7 +134,9 @@ static int cmdH2h(const std::string& path, const std::string& a, const std::stri
 }
 
 int main(int argc, char** argv) {
-    if (argc >= 3 && std::string(argv[1]) == "replay") return cmdReplay(argv[2]);
+    if (argc >= 3 && std::string(argv[1]) == "replay") {
+        return cmdReplay(argv[2], argc >= 4 && std::string(argv[3]) == "--sets");
+    }
     if (argc >= 3 && std::string(argv[1]) == "rate") {
         return cmdRate(argv[2], argc >= 4 ? argv[3] : "");
     }

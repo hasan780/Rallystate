@@ -38,20 +38,27 @@ private:
     std::optional<Player> winner_;
 };
 
-// Tracks a TIEBREAK game: first to 7 points, win by 2. (Serve order
-// alternates every 2 points in real tennis, but you don't need to model
-// serve for this project -- just the point/win logic.)
+// Tracks a TIEBREAK game: first to 7 points, win by 2. A 10-point
+// tiebreak is the same with a target of 10. (Serve order alternates every
+// 2 points in real tennis, but you don't need to model serve for this
+// project -- just the point/win logic.)
 class TiebreakTracker {
 public:
+    TiebreakTracker() = default;
+    explicit TiebreakTracker(int points_to_win) : points_to_win_(points_to_win) {}
+
     // Same shape as GameTracker::awardPoint, but the win condition is
-    // different: first to at least 7 points with at least a 2-point lead.
+    // different: first to at least 7 points (or the target given to the
+    // constructor) with at least a 2-point lead.
     std::optional<Player> awardPoint(Player winner);
 
     int pointsFor(Player p) const;
+    int pointsToWin() const { return points_to_win_; }
     bool isOver() const { return over_; }
     std::optional<Player> winner() const { return winner_; }
 
 private:
+    int points_to_win_ = 7;
     int points_a_ = 0;
     int points_b_ = 0;
     bool over_ = false;

@@ -24,7 +24,10 @@ struct PointResult {
 // entry point: feed it one point at a time via awardPoint().
 class MatchStateMachine {
 public:
-    explicit MatchStateMachine(MatchFormat format);
+    // `final_set_rule` only changes the deciding set. The default keeps the
+    // normal 7-point tiebreak at 6-6 in every set.
+    explicit MatchStateMachine(MatchFormat format,
+                               FinalSetRule final_set_rule = FinalSetRule::Tiebreak7At6);
 
     // Feed a single point into the engine. This is the core entry point;
     // later, MatchReplay will call this once per PointEvent from a
@@ -44,6 +47,8 @@ public:
     //   4. After a game is won (non-tiebreak path), check: are both
     //      players at 6 games? If so, start a tiebreak (don't check for
     //      a set winner yet -- the tiebreak itself decides the set).
+    //      In the deciding set the FinalSetRule can change this: no
+    //      tiebreak at all, a tiebreak at 12-12, or a 10-point tiebreak.
     //   5. Otherwise check the normal set-win condition: a player wins
     //      the set once they have >= 6 games AND a lead of >= 2 games
     //      (this naturally covers 6-4, 6-3, ..., and 7-5).
@@ -52,6 +57,12 @@ public:
     //      is now over (a player has won enough sets: 2 for best-of-3,
     //      3 for best-of-5).
     PointResult awardPoint(Player winner);
+
+    FinalSetRule finalSetRule() const { return final_set_rule_; }
+
+    // True while the current set is the deciding set (set 3 of best-of-3,
+    // set 5 of best-of-5).
+    bool inDecidingSet() const;
 
     bool isMatchOver() const { return match_over_; }
     std::optional<Player> matchWinner() const { return match_winner_; }
@@ -67,6 +78,7 @@ public:
 
 private:
     MatchFormat format_;
+    FinalSetRule final_set_rule_;
     int sets_needed_to_win_;
 
     std::vector<SetScore> completed_sets_;
@@ -84,8 +96,12 @@ private:
     // free to change signatures if a different breakdown makes more sense
     // to you) ---
 
-    // True once both players are at 6 games in the current set.
+    // True once both players are at 6 games in the current set (or at the
+    // level the final-set rule sets for the deciding set).
     bool shouldStartTiebreak() const;
+
+    // 7, or 10 for a 10-point tiebreak in the deciding set.
+    int tiebreakTarget() const;
 
     // Returns the set winner based on cur_games_a_/cur_games_b_, if the
     // normal (non-tiebreak) win condition is met. Returns nullopt if the

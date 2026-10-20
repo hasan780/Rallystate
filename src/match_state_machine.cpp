@@ -2,12 +2,27 @@
 
 namespace rallystate {
 
-MatchStateMachine::MatchStateMachine(MatchFormat format)
+MatchStateMachine::MatchStateMachine(MatchFormat format, FinalSetRule final_set_rule)
     : format_(format),
+      final_set_rule_(final_set_rule),
       sets_needed_to_win_(format == MatchFormat::BestOf3 ? 2 : 3) {}
 
+bool MatchStateMachine::inDecidingSet() const {
+    return static_cast<int>(completed_sets_.size()) == 2 * sets_needed_to_win_ - 2;
+}
+
 bool MatchStateMachine::shouldStartTiebreak() const {
-    return cur_games_a_ == 6 && cur_games_b_ == 6;
+    int level = 6;
+    if (inDecidingSet()) {
+        if (final_set_rule_ == FinalSetRule::Advantage) return false;
+        if (final_set_rule_ == FinalSetRule::Tiebreak7At12) level = 12;
+    }
+    return cur_games_a_ == level && cur_games_b_ == level;
+}
+
+int MatchStateMachine::tiebreakTarget() const {
+    if (inDecidingSet() && final_set_rule_ == FinalSetRule::Tiebreak10At6) return 10;
+    return 7;
 }
 
 std::optional<Player> MatchStateMachine::checkSetWinner() const {
@@ -79,7 +94,7 @@ PointResult MatchStateMachine::awardPoint(Player winner) {
     }
 
     if (shouldStartTiebreak()) {
-        cur_tiebreak_ = TiebreakTracker{};
+        cur_tiebreak_ = TiebreakTracker{tiebreakTarget()};
         return result;
     }
 
